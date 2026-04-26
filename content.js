@@ -9,9 +9,9 @@
     // --- Configuration & State ---
     const PLATFORM_CONFIG = {
         chatgpt: {
-            messageSelector: '[data-testid^="conversation-turn-"]',
-            contentSelector: '.markdown',
-            scrollSelector: 'main .flex-1.overflow-y-auto', // ChatGPT scroll container
+            messageSelector: '[data-testid^="conversation-turn-"], .group',
+            contentSelector: '.markdown, .flex-col.gap-1',
+            scrollSelector: 'main .flex-1.overflow-y-auto, [class*="react-scroll"]',
             getConversationId: () => {
                 const path = window.location.pathname;
                 const match = path.match(/\/(?:c|g|s)\/([a-zA-Z0-9-]+)/);
@@ -22,17 +22,21 @@
             }
         },
         claude: {
-            messageSelector: '.font-claude-message',
-            contentSelector: '.font-claude-message',
-            scrollSelector: '.overflow-y-auto',
+            messageSelector: '[data-testid="chat-message"], .font-claude-message, .chat-message',
+            contentSelector: '.grid-cols-1, .font-claude-message',
+            scrollSelector: '[data-testid="scroll-container"], .overflow-y-auto, main',
             getConversationId: () => window.location.pathname.split('/').pop(),
             getConversationTitle: () => document.title
         },
         deepseek: {
-            messageSelector: '.ds-message-item',
-            contentSelector: '.ds-markdown',
-            scrollSelector: '.ds-scroll-container',
-            getConversationId: () => window.location.pathname.split('/').pop(),
+            messageSelector: '.ds-message-item, [data-message-id]',
+            contentSelector: '.ds-markdown, .ds-message-content',
+            scrollSelector: '.ds-scroll-container, [class*="scroll"], main',
+            getConversationId: () => {
+                const path = window.location.pathname;
+                const match = path.match(/\/chat\/s\/([a-zA-Z0-9-]+)/) || path.match(/\/a\/chat\/s\/([a-zA-Z0-9-]+)/);
+                return match ? match[1] : window.location.pathname.split('/').pop();
+            },
             getConversationTitle: () => document.title
         }
     };
@@ -285,6 +289,7 @@
     }
 
     function showToast(message) {
+        console.log('ChatPin: Toast', message);
         const toast = document.createElement('div');
         toast.className = 'chatpin-toast';
         // Only prepend ✅ if message doesn't already start with an emoji indicator
@@ -654,35 +659,67 @@
 
     /**
      * Find the best scroll container for the current platform.
-     * Claude has multiple .overflow-y-auto elements — we need the one that
-     * actually contains the conversation messages, not a sidebar or inner wrapper.
      */
-    function getScrollContainer() {
+    function getScrollContainer(targetEl = null) {
         const config = PLATFORM_CONFIG[currentPlatform];
+        console.log('ChatPin: Finding scroll container for', currentPlatform);
 
-        if (currentPlatform === 'claude') {
-            // Claude's message list lives inside the deepest overflow-y-auto that
-            // contains at least one message element.
-            const candidates = Array.from(document.querySelectorAll('.overflow-y-auto'));
-            for (let i = candidates.length - 1; i >= 0; i--) {
-                if (candidates[i].querySelector(config.messageSelector)) {
-                    return candidates[i];
+        // 1. If we have a target element, find its nearest scrollable parent
+        if (targetEl) {
+            let parent = targetEl.parentElement;
+            while (parent && parent !== document.body) {
+                const style = window.getComputedStyle(parent);
+                const isScrollable = /(auto|scroll)/.test(style.overflowY + style.overflow);
+                if (isScrollable && parent.scrollHeight > parent.clientHeight) {
+                    console.log('ChatPin: Found container via parent hierarchy');
+                    return parent;
                 }
+                parent = parent.parentElement;
             }
-            return candidates[candidates.length - 1] || null;
         }
 
-        return document.querySelector(config.scrollSelector) || null;
+        // 2. Try platform-specific selector first
+        const platformScroll = document.querySelector(config.scrollSelector);
+        if (platformScroll && platformScroll.scrollHeight > platformScroll.clientHeight) {
+            console.log('ChatPin: Found container via selector', config.scrollSelector);
+            return platformScroll;
+        }
+
+        // 3. Fallback: Find the scrollable element that actually contains message elements.
+        const allScrollable = Array.from(document.querySelectorAll('*')).filter(el => {
+            const style = getComputedStyle(el);
+            return (style.overflowY === 'auto' || style.overflowY === 'scroll') &&
+                   el.scrollHeight > el.clientHeight &&
+                   el.clientHeight > 200; // ignore tiny scrollable areas
+        });
+
+        console.log(`ChatPin: Found ${allScrollable.length} scrollable candidates`);
+
+        // Prefer the one that contains a message element
+        for (let i = allScrollable.length - 1; i >= 0; i--) {
+            if (allScrollable[i].querySelector(config.messageSelector)) {
+                console.log('ChatPin: Found container via message child check');
+                return allScrollable[i];
+            }
+        }
+        
+        // 4. Final Fallback: largest scrollable area or main/body
+        const largest = allScrollable.sort((a, b) => b.clientHeight - a.clientHeight)[0];
+        console.log('ChatPin: Falling back to largest or body');
+        return largest || document.querySelector('main') || document.body;
     }
 
     /**
-     * Scroll precisely to the pin's text location, then highlight it.
+     * Scroll precisely to the pin's location, then highlight it.
      */
     function doScrollAndHighlight(targetEl, selectedText) {
-        const container = getScrollContainer();
+        console.log('ChatPin: Preparing scroll to', targetEl);
+        const container = getScrollContainer(targetEl);
+        if (!container) {
+            console.warn('ChatPin: No scroll container found, using window');
+        }
 
         // Try to get a precise anchor at the exact text position
-        // We create a temporary pin object to reuse findPinAnchor
         const walker = document.createTreeWalker(targetEl, NodeFilter.SHOW_TEXT, null, false);
         let anchor = null;
         let node;
@@ -693,13 +730,18 @@
                 range.setStart(node, idx);
                 range.setEnd(node, idx);
                 anchor = document.createElement('span');
-                anchor.style.cssText = 'display:inline;pointer-events:none;';
-                range.insertNode(anchor);
+                anchor.style.cssText = 'display:inline-block;width:0;height:0;pointer-events:none;';
+                try {
+                    range.insertNode(anchor);
+                    console.log('ChatPin: Inserted precise scroll anchor');
+                } catch (e) {
+                    console.warn('ChatPin: Failed to insert anchor', e);
+                    anchor = null;
+                }
                 break;
             }
         }
 
-        // Scroll to the anchor if found, otherwise fall back to the message element
         const scrollTarget = anchor || targetEl;
         scrollToTargetWithOffset(scrollTarget, container);
 
@@ -711,14 +753,16 @@
                 parent.normalize();
             }
             highlightTextInElement(targetEl, selectedText);
-        }, 1600);
+        }, 1200);
     }
 
     async function jumpToPin(pin) {
+        console.log('ChatPin: Jumping to pin', pin);
         const config = PLATFORM_CONFIG[currentPlatform];
 
         // 1. Different conversation → show dialog
         if (pin.conversationId !== config.getConversationId()) {
+            console.log('ChatPin: Cross-conversation jump detected');
             showJumpDialog(pin);
             return;
         }
@@ -726,18 +770,18 @@
         // 2. Same conversation → try to find element immediately
         let targetEl = findPinElement(pin);
         if (targetEl) {
+            console.log('ChatPin: Target element found immediately');
             doScrollAndHighlight(targetEl, pin.selectedText);
             return;
         }
 
         // 3. Not found — element is outside the virtual scroll viewport.
-        // Strategy: scroll the container by estimated position to force the target
-        // message into the DOM, then retry.
+        console.log('ChatPin: Target not in DOM, attempting lazy-load search');
         showToast('🔍 Searching for message…');
 
         const container = getScrollContainer();
         if (!container) {
-            showToast('❌ Could not find scroll container.');
+            showToast('❌ Scroll container not found.');
             return;
         }
 

@@ -6,7 +6,8 @@
   "permissions": [
     "storage",
     "activeTab",
-    "tabs"
+    "tabs",
+    "windows"
   ],
   "host_permissions": [
     "https://chatgpt.com/*",
@@ -26,6 +27,9 @@
   ],
   "action": {
     "default_title": "ChatPin"
+  },
+  "background": {
+    "service_worker": "background.js"
   },
   "icons": {
     "48": "icons/icon48.png",
