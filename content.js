@@ -711,7 +711,7 @@
                 parent.normalize();
             }
             highlightTextInElement(targetEl, selectedText);
-        }, 700);
+        }, 1600);
     }
 
     async function jumpToPin(pin) {
@@ -821,34 +821,29 @@
     function scrollToTargetWithOffset(targetEl, scrollContainer) {
         if (!targetEl) return;
 
-        // Step 1: Bring the element to the top of the viewport instantly.
-        targetEl.scrollIntoView({ behavior: 'instant', block: 'start' });
+        const container = scrollContainer;
+        const isValidContainer = container &&
+            container !== window &&
+            container.clientHeight > 0 &&
+            container.scrollHeight > container.clientHeight;
 
-        // Step 2: Now nudge down so the element top sits at 1/3 of the viewport.
-        requestAnimationFrame(() => {
-            const rect = targetEl.getBoundingClientRect();
-            const container = scrollContainer;
+        // Step 1: Smooth scroll the element into view at the top.
+        // scrollIntoView is the only reliable way to reach elements regardless
+        // of whether they are near or far from the current scroll position.
+        targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-            const isValidContainer = container &&
-                container !== window &&
-                container.clientHeight > 0 &&
-                container.scrollHeight > container.clientHeight;
-
-            // rect.top is now ~0 (top of viewport) after step 1.
-            // We want it at viewportHeight/3, so we scroll UP by that amount.
-            const viewportHeight = isValidContainer
-                ? container.clientHeight
-                : window.innerHeight;
-            const targetTopPosition = viewportHeight / 3;
-            // adjustment is negative: scroll back up so element appears 1/3 from top
-            const adjustment = rect.top - targetTopPosition;
-
+        // Step 2: After scrollIntoView settles (~800ms), nudge down to 1/3 position.
+        // At this point rect.top ≈ 0 (element is at top of viewport), so we
+        // scroll DOWN by viewportHeight/3 to land it at the 1/3 mark.
+        setTimeout(() => {
+            const viewportHeight = isValidContainer ? container.clientHeight : window.innerHeight;
+            const offset = viewportHeight / 3;
             if (isValidContainer) {
-                container.scrollBy({ top: adjustment, behavior: 'smooth' });
+                container.scrollBy({ top: -offset, behavior: 'smooth' });
             } else {
-                window.scrollBy({ top: adjustment, behavior: 'smooth' });
+                window.scrollBy({ top: -offset, behavior: 'smooth' });
             }
-        });
+        }, 800);
     }
 
     // Start
