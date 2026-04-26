@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "ChatPin",
+  "name": "PinMyAI",
   "version": "1.1",
   "description": "Pin and jump to specific parts of ChatGPT conversations.",
   "permissions": [
@@ -24,7 +24,7 @@
     }
   ],
   "action": {
-    "default_title": "ChatPin"
+    "default_title": "PinMyAI"
   },
   "background": {
     "service_worker": "background.js"

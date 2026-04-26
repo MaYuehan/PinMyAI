@@ -1,5 +1,5 @@
 /**
- * ChatPin Content Script
+ * PinMyAI Content Script
  * Handles DOM interactions for ChatGPT, Claude, and DeepSeek.
  */
 
