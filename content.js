@@ -583,59 +583,6 @@
 
     // --- Jump & Highlight ---
 
-    /**
-     * Find the message element containing the pin's selected text.
-     * Returns { messageEl, anchorEl } where anchorEl is a temporary <span>
-     * inserted at the exact text location for precise scrolling.
-     * Caller MUST remove anchorEl after use.
-     */
-    function findPinAnchor(pin) {
-        const config = PLATFORM_CONFIG[currentPlatform];
-
-        // Find the message element (same 3-strategy logic as before)
-        let messageEl = null;
-
-        if (pin.messageId && pin.messageId !== 'unknown') {
-            messageEl = document.querySelector(`[data-testid="${pin.messageId}"]`) ||
-                        document.getElementById(pin.messageId);
-        }
-
-        if (!messageEl) {
-            const allMessages = Array.from(document.querySelectorAll(config.messageSelector));
-            if (pin.messageOrder !== undefined && allMessages[pin.messageOrder]) {
-                const msg = allMessages[pin.messageOrder];
-                if (msg.innerText.includes(pin.selectedText)) messageEl = msg;
-            }
-            if (!messageEl) {
-                for (const msg of allMessages) {
-                    if (msg.innerText.includes(pin.selectedText)) { messageEl = msg; break; }
-                }
-            }
-        }
-
-        if (!messageEl) return null;
-
-        // Walk text nodes to find the exact location of selectedText
-        const walker = document.createTreeWalker(messageEl, NodeFilter.SHOW_TEXT, null, false);
-        let node;
-        while (node = walker.nextNode()) {
-            const idx = node.textContent.indexOf(pin.selectedText);
-            if (idx !== -1) {
-                // Insert a zero-height anchor span right before the matched text
-                const range = document.createRange();
-                range.setStart(node, idx);
-                range.setEnd(node, idx); // zero-width, non-destructive
-                const anchor = document.createElement('span');
-                anchor.style.cssText = 'display:inline;pointer-events:none;';
-                range.insertNode(anchor);
-                return { messageEl, anchor };
-            }
-        }
-
-        // Fallback: couldn't find the exact text node, scroll to message top
-        return { messageEl, anchor: null };
-    }
-
     // findPinElement is used by the lazy-load retry path — just needs the messageEl, no anchor
     function findPinElement(pin) {
         const config = PLATFORM_CONFIG[currentPlatform];
@@ -660,64 +607,36 @@
     /**
      * Find the best scroll container for the current platform.
      */
-    function getScrollContainer(targetEl = null) {
+    function getScrollContainer() {
         const config = PLATFORM_CONFIG[currentPlatform];
-        console.log('ChatPin: Finding scroll container for', currentPlatform);
 
-        // 1. If we have a target element, find its nearest scrollable parent
-        if (targetEl) {
-            let parent = targetEl.parentElement;
-            while (parent && parent !== document.body) {
-                const style = window.getComputedStyle(parent);
-                const isScrollable = /(auto|scroll)/.test(style.overflowY + style.overflow);
-                if (isScrollable && parent.scrollHeight > parent.clientHeight) {
-                    console.log('ChatPin: Found container via parent hierarchy');
-                    return parent;
+        if (currentPlatform === 'claude' || currentPlatform === 'deepseek') {
+            const allScrollable = Array.from(document.querySelectorAll('*')).filter(el => {
+                const style = getComputedStyle(el);
+                return (style.overflowY === 'auto' || style.overflowY === 'scroll') &&
+                    el.scrollHeight > el.clientHeight &&
+                    el.clientHeight > 200;
+            });
+
+            for (let i = allScrollable.length - 1; i >= 0; i--) {
+                if (allScrollable[i].querySelector(config.messageSelector)) {
+                    return allScrollable[i];
                 }
-                parent = parent.parentElement;
             }
+            return allScrollable.sort((a, b) => b.clientHeight - a.clientHeight)[0] || null;
         }
 
-        // 2. Try platform-specific selector first
-        const platformScroll = document.querySelector(config.scrollSelector);
-        if (platformScroll && platformScroll.scrollHeight > platformScroll.clientHeight) {
-            console.log('ChatPin: Found container via selector', config.scrollSelector);
-            return platformScroll;
-        }
-
-        // 3. Fallback: Find the scrollable element that actually contains message elements.
-        const allScrollable = Array.from(document.querySelectorAll('*')).filter(el => {
-            const style = getComputedStyle(el);
-            return (style.overflowY === 'auto' || style.overflowY === 'scroll') &&
-                   el.scrollHeight > el.clientHeight &&
-                   el.clientHeight > 200; // ignore tiny scrollable areas
-        });
-
-        console.log(`ChatPin: Found ${allScrollable.length} scrollable candidates`);
-
-        // Prefer the one that contains a message element
-        for (let i = allScrollable.length - 1; i >= 0; i--) {
-            if (allScrollable[i].querySelector(config.messageSelector)) {
-                console.log('ChatPin: Found container via message child check');
-                return allScrollable[i];
-            }
-        }
-        
-        // 4. Final Fallback: largest scrollable area or main/body
-        const largest = allScrollable.sort((a, b) => b.clientHeight - a.clientHeight)[0];
-        console.log('ChatPin: Falling back to largest or body');
-        return largest || document.querySelector('main') || document.body;
+        return document.querySelector(config.scrollSelector) || null;
     }
 
     /**
-     * Scroll precisely to the pin's location, then highlight it.
+     * Jump directly to the pin's location, then highlight it.
      */
+    /**
+ * Scroll precisely to the pin's text location, then highlight it.
+ */
     function doScrollAndHighlight(targetEl, selectedText) {
-        console.log('ChatPin: Preparing scroll to', targetEl);
-        const container = getScrollContainer(targetEl);
-        if (!container) {
-            console.warn('ChatPin: No scroll container found, using window');
-        }
+        const container = getScrollContainer();
 
         // Try to get a precise anchor at the exact text position
         const walker = document.createTreeWalker(targetEl, NodeFilter.SHOW_TEXT, null, false);
@@ -730,18 +649,13 @@
                 range.setStart(node, idx);
                 range.setEnd(node, idx);
                 anchor = document.createElement('span');
-                anchor.style.cssText = 'display:inline-block;width:0;height:0;pointer-events:none;';
-                try {
-                    range.insertNode(anchor);
-                    console.log('ChatPin: Inserted precise scroll anchor');
-                } catch (e) {
-                    console.warn('ChatPin: Failed to insert anchor', e);
-                    anchor = null;
-                }
+                anchor.style.cssText = 'display:inline;pointer-events:none;';
+                range.insertNode(anchor);
                 break;
             }
         }
 
+        // Scroll to the anchor if found, otherwise fall back to the message element
         const scrollTarget = anchor || targetEl;
         scrollToTargetWithOffset(scrollTarget, container);
 
@@ -753,7 +667,7 @@
                 parent.normalize();
             }
             highlightTextInElement(targetEl, selectedText);
-        }, 1200);
+        }, 800);
     }
 
     async function jumpToPin(pin) {
@@ -789,12 +703,12 @@
         const totalMessages = document.querySelectorAll(config.messageSelector).length;
 
         // Estimate where the target message is based on messageOrder ratio
-        // and jump the scroll position there to trigger virtual scroll rendering.
         const estimatedRatio = totalMessages > 0
             ? (pin.messageOrder || 0) / Math.max(totalMessages, 1)
             : 0;
         const estimatedScrollTop = totalHeight * estimatedRatio;
 
+        // Instant jump to estimated position to trigger virtual scroll rendering
         container.scrollTo({ top: estimatedScrollTop, behavior: 'smooth' });
 
         // Retry up to 8 times over 4 seconds (every 500ms)
@@ -817,6 +731,30 @@
         }, 500);
     }
 
+    function scrollToTargetWithOffset(targetEl, scrollContainer) {
+        if (!targetEl) return;
+
+        const container = scrollContainer;
+        const isValidContainer = container &&
+            container !== window &&
+            container.clientHeight > 0 &&
+            container.scrollHeight > container.clientHeight;
+
+        // Step 1: Smooth scroll the element into view at the top.
+        targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        // Step 2: After scrollIntoView settles (~800ms), nudge down to 1/3 position.
+        setTimeout(() => {
+            const viewportHeight = isValidContainer ? container.clientHeight : window.innerHeight;
+            const offset = viewportHeight / 3;
+            if (isValidContainer) {
+                container.scrollBy({ top: offset, behavior: 'smooth' });
+            } else {
+                window.scrollBy({ top: offset, behavior: 'smooth' });
+            }
+        }, 800);
+    }
+
     function highlightTextInElement(element, text) {
         const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null, false);
         let node;
@@ -836,7 +774,7 @@
                 } catch (e) {
                     // Cross-element selection: fall back to flashing the whole message
                     element.classList.add('chatpin-highlight');
-                    setTimeout(() => element.classList.remove('chatpin-highlight'), 3000);
+                    setTimeout(() => element.classList.remove('chatpin-highlight'), 5000);
                     return;
                 }
 
@@ -851,7 +789,7 @@
                         // in React-based chats (ChatGPT, Claude).
                         parent.normalize();
                     }
-                }, 3000);
+                }, 5000);
 
                 return;
             }
@@ -859,35 +797,7 @@
 
         // Fallback: no matching text node found — flash the whole message
         element.classList.add('chatpin-highlight');
-        setTimeout(() => element.classList.remove('chatpin-highlight'), 3000);
-    }
-
-    function scrollToTargetWithOffset(targetEl, scrollContainer) {
-        if (!targetEl) return;
-
-        const container = scrollContainer;
-        const isValidContainer = container &&
-            container !== window &&
-            container.clientHeight > 0 &&
-            container.scrollHeight > container.clientHeight;
-
-        // Step 1: Smooth scroll the element into view at the top.
-        // scrollIntoView is the only reliable way to reach elements regardless
-        // of whether they are near or far from the current scroll position.
-        targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-        // Step 2: After scrollIntoView settles (~800ms), nudge down to 1/3 position.
-        // At this point rect.top ≈ 0 (element is at top of viewport), so we
-        // scroll DOWN by viewportHeight/3 to land it at the 1/3 mark.
-        setTimeout(() => {
-            const viewportHeight = isValidContainer ? container.clientHeight : window.innerHeight;
-            const offset = viewportHeight / 3;
-            if (isValidContainer) {
-                container.scrollBy({ top: -offset, behavior: 'smooth' });
-            } else {
-                window.scrollBy({ top: -offset, behavior: 'smooth' });
-            }
-        }, 800);
+        setTimeout(() => element.classList.remove('chatpin-highlight'), 5000);
     }
 
     // Start

@@ -431,26 +431,26 @@
 
 /* Highlight Animation */
 .chatpin-highlight {
-    animation: chatpin-flash 3s ease-in-out forwards;
+    animation: chatpin-soft-blue 3s ease-in-out forwards;
     border-radius: 4px;
     transition: background-color 0.2s ease;
 }
 
-@keyframes chatpin-flash {
+@keyframes chatpin-soft-blue {
     0% {
-        background-color: rgba(255, 255, 0, 0);
+        background-color: rgba(59, 130, 246, 0);
     }
     10% {
-        background-color: rgba(255, 255, 0, 0.8); /* Bright Yellow */
+        background-color: rgba(59, 130, 246, 0.15); /* Soft Light Blue */
     }
     50% {
-        background-color: rgba(255, 255, 0, 0.6);
+        background-color: rgba(59, 130, 246, 0.15);
     }
     90% {
-        background-color: rgba(255, 255, 0, 0.4);
+        background-color: rgba(59, 130, 246, 0.15);
     }
     100% {
-        background-color: rgba(255, 255, 0, 0);
+        background-color: rgba(59, 130, 246, 0);
     }
 }
 
