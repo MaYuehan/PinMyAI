@@ -20,28 +20,10 @@
             getConversationTitle: () => {
                 return document.title.replace(' - ChatGPT', '') || 'New Chat';
             }
-        },
-        claude: {
-            messageSelector: '[data-testid="chat-message"], .font-claude-message, .chat-message',
-            contentSelector: '.grid-cols-1, .font-claude-message',
-            scrollSelector: '[data-testid="scroll-container"], .overflow-y-auto, main',
-            getConversationId: () => window.location.pathname.split('/').pop(),
-            getConversationTitle: () => document.title
-        },
-        deepseek: {
-            messageSelector: '.ds-message-item, [data-message-id]',
-            contentSelector: '.ds-markdown, .ds-message-content',
-            scrollSelector: '.ds-scroll-container, [class*="scroll"], main',
-            getConversationId: () => {
-                const path = window.location.pathname;
-                const match = path.match(/\/chat\/s\/([a-zA-Z0-9-]+)/) || path.match(/\/a\/chat\/s\/([a-zA-Z0-9-]+)/);
-                return match ? match[1] : window.location.pathname.split('/').pop();
-            },
-            getConversationTitle: () => document.title
         }
     };
 
-    let currentPlatform = 'chatgpt'; // Default to ChatGPT
+    let currentPlatform = 'chatgpt'; // Locked to ChatGPT
     let pins = [];
     let floatingBtn = null;
     let panelElement = null;
@@ -96,10 +78,8 @@
     }
 
     function detectPlatform() {
-        const host = window.location.hostname;
-        if (host.includes('chatgpt.com')) currentPlatform = 'chatgpt';
-        else if (host.includes('claude.ai')) currentPlatform = 'claude';
-        else if (host.includes('deepseek.com')) currentPlatform = 'deepseek';
+        // Locked to ChatGPT for now
+        currentPlatform = 'chatgpt';
     }
 
     function setupEventListeners() {
@@ -535,15 +515,7 @@
         const overlay = document.createElement('div');
         overlay.className = 'chatpin-modal-overlay';
         
-        let convUrl = '';
-        if (pin.platform === 'chatgpt') convUrl = `https://chatgpt.com/c/${pin.conversationId}`;
-        else if (pin.platform === 'claude') convUrl = `https://claude.ai/chat/${pin.conversationId}`;
-        else if (pin.platform === 'deepseek') convUrl = `https://chat.deepseek.com/a/chat/s/${pin.conversationId}`;
-        
-        if (!convUrl) {
-            showToast('❌ Invalid conversation URL');
-            return;
-        }
+        let convUrl = `https://chatgpt.com/c/${pin.conversationId}`;
 
         const jumpUrl = new URL(convUrl);
         jumpUrl.searchParams.set('chatpin_jump', pin.id);

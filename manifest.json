@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "ChatPin",
-  "version": "1.0",
-  "description": "Pin and jump to specific parts of AI chat conversations.",
+  "version": "1.1",
+  "description": "Pin and jump to specific parts of ChatGPT conversations.",
   "permissions": [
     "storage",
     "activeTab",
@@ -11,15 +11,13 @@
   ],
   "host_permissions": [
     "https://chatgpt.com/*",
-    "https://claude.ai/*",
-    "https://*.deepseek.com/*"
+    "https://chat.openai.com/*"
   ],
   "content_scripts": [
     {
       "matches": [
         "https://chatgpt.com/*",
-        "https://claude.ai/*",
-        "https://*.deepseek.com/*"
+        "https://chat.openai.com/*"
       ],
       "js": ["content.js"],
       "css": ["styles.css"]
