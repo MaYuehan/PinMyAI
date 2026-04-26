@@ -5,13 +5,12 @@
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     console.log('ChatPin Background: Message received', request);
-    if (request.action === 'openNewWindow') {
-        chrome.windows.create({
+    if (request.action === 'openNewTab') {
+        chrome.tabs.create({
             url: request.url,
-            focused: true,
-            type: 'normal'
-        }, (window) => {
-            console.log('ChatPin Background: New window created', window.id);
+            active: true
+        }, (tab) => {
+            console.log('ChatPin Background: New tab created', tab.id);
         });
     }
 });

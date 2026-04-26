@@ -494,12 +494,40 @@
 
         item.querySelector('.chatpin-delete').onclick = (e) => {
             e.stopPropagation();
-            if (confirm(`Delete pin "${pin.name}"?`)) {
-                deletePin(pin.id);
-            }
+            showDeleteConfirmation(pin);
         };
 
         return item;
+    }
+
+    function showDeleteConfirmation(pin) {
+        const overlay = document.createElement('div');
+        overlay.className = 'chatpin-modal-overlay';
+        
+        overlay.innerHTML = `
+            <div class="chatpin-jump-dialog">
+                <span class="chatpin-close-x">✕</span>
+                <h3>Delete Pin?</h3>
+                <p>Are you sure you want to delete "<strong>${pin.name}</strong>"?<br><br><span style="color: #d93025; font-size: 12px;">This action cannot be undone.</span></p>
+                <div class="chatpin-jump-options">
+                    <button class="chatpin-jump-btn chatpin-jump-btn-delete" id="chatpin-confirm-delete">Delete</button>
+                    <button class="chatpin-jump-btn" id="chatpin-cancel-delete">Cancel</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        const close = () => overlay.remove();
+
+        overlay.querySelector('.chatpin-close-x').onclick = close;
+        overlay.onclick = (e) => { if (e.target === overlay) close(); };
+        overlay.querySelector('#chatpin-cancel-delete').onclick = close;
+
+        overlay.querySelector('#chatpin-confirm-delete').onclick = () => {
+            deletePin(pin.id);
+            close();
+        };
     }
 
     async function deletePin(id) {
@@ -527,7 +555,7 @@
                 <h3>Switch Conversation?</h3>
                 <p>This pin is in "<strong>${pin.conversationTitle}</strong>". How would you like to jump?</p>
                 <div class="chatpin-jump-options">
-                    <button class="chatpin-jump-btn chatpin-jump-btn-primary" id="chatpin-jump-new-window">Open in New Window</button>
+                    <button class="chatpin-jump-btn chatpin-jump-btn-primary" id="chatpin-jump-new-tab">Open in New Tab</button>
                     <button class="chatpin-jump-btn" id="chatpin-jump-current">Jump in Current Window</button>
                     <button class="chatpin-jump-btn" id="chatpin-jump-cancel">Cancel</button>
                 </div>
@@ -542,8 +570,8 @@
         overlay.onclick = (e) => { if (e.target === overlay) close(); };
         overlay.querySelector('#chatpin-jump-cancel').onclick = close;
 
-        overlay.querySelector('#chatpin-jump-new-window').onclick = () => {
-            chrome.runtime.sendMessage({ action: 'openNewWindow', url: finalUrl });
+        overlay.querySelector('#chatpin-jump-new-tab').onclick = () => {
+            chrome.runtime.sendMessage({ action: 'openNewTab', url: finalUrl });
             close();
         };
 

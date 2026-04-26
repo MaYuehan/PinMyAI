@@ -516,19 +516,16 @@
     color: white;
 }
 
-/* Cancel button in jump dialog */
-#chatpin-jump-cancel {
-    color: var(--chatpin-text-secondary);
-    font-size: 13px;
-    padding: 8px;
-    border-color: transparent;
-    background: transparent;
+.chatpin-jump-btn-delete {
+    background: #d93025; /* Red for deletion */
+    color: white;
+    border-color: #d93025;
 }
 
-#chatpin-jump-cancel:hover {
-    background: var(--chatpin-bg-subtle);
-    border-color: var(--chatpin-border);
-    color: var(--chatpin-text);
+.chatpin-jump-btn-delete:hover {
+    background: #b71c1c;
+    border-color: #b71c1c;
+    color: white;
 }
 
 .chatpin-close-x {
