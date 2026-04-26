@@ -1,10 +1,10 @@
 # 📌 PinMyAI
 
-**PinMyAI** 是一个浏览器扩展，让你可以在 ChatGPT 对话中标记重要的回复片段，随时一键跳回 —— 再也不用在长对话里疯狂滚动了。
+**PinMyAI** 是一个浏览器扩展，让你可以在 ChatGPT 对话中标记重要的回复片段，随时一键跳回!再也不用在长对话里疯狂滚动了。
 
-![Chrome Extension](https://img.shields.io/badge/platform-Chrome-blue) ![Version](https://img.shields.io/badge/version-1.0.0-green) ![Status](https://img.shields.io/badge/status-active-brightgreen)
+!\[Chrome Extension]\(https\://img.shields.io/badge/platform-Chrome-blue null) !\[Version]\(https\://img.shields.io/badge/version-1.0.0-green null) !\[Status]\(https\://img.shields.io/badge/status-active-brightgreen null)
 
----
+
 
 ## 🎯 解决什么问题？
 
@@ -17,30 +17,34 @@
 
 **PinMyAI 就是你的「对话书签」**：选中 → 标记 → 随时跳回。
 
----
+
 
 ## ✨ 核心功能
 
 ### 📌 添加 Pin
+
 - 选中 AI 回复中的任何文字
 - 点击弹出的 📌 按钮
 - 输入名称（自动取文字前 20 字）
 
 ### 📂 管理面板
+
 - 右上角 📌 图标打开面板
 - 查看当前对话的所有 Pin
 - 支持重命名、删除
 - 支持三种排序：按时间（最新/最旧）/ 按对话顺序
 
 ### 🌐 跨对话跳转
+
 - 全局视图：查看所有对话的 Pin
 - 点击其他对话的 Pin → 弹窗选择：新标签页 / 当前窗口 / 取消
 
 ### 🎯 精确跳转
+
 - 跳转到**精确的文字位置**（不是整条消息）
 - 柔和的高亮动画（浅蓝色，5 秒）
 
----
+
 
 ## 🚀 安装方法
 
@@ -56,19 +60,19 @@
 
 > 待发布
 
----
+
 
 ## 🛠 支持的平台
 
-| 平台 | 状态 |
-|------|------|
-| ChatGPT | ✅ 完全支持 |
-| Claude | 🚧 计划中 |
+| 平台       | 状态     |
+| -------- | ------ |
+| ChatGPT  | ✅ 完全支持 |
+| Claude   | 🚧 计划中 |
 | DeepSeek | 🚧 计划中 |
 
 > **Note**: 当前版本专注于 ChatGPT，确保最佳体验。Claude 和 DeepSeek 支持将在后续版本中陆续添加。
 
----
+
 
 ## 🎮 使用指南
 
@@ -91,7 +95,7 @@
 - 点击 🗑️ 删除（有确认弹窗）
 - 切换排序方式：按时间 / 按对话顺序
 
----
+
 
 ## 🧩 技术架构
 
@@ -101,3 +105,5 @@
 ├── background.js       # 后台脚本（新标签页打开）
 ├── styles.css          # 样式（面板、按钮、高亮动画）
 └── icons/              # 图标资源
+```
+
