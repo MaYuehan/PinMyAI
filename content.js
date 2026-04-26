@@ -44,10 +44,12 @@
     let panelTrigger = null;
 
     // --- Initialization ---
-    function init() {
+    let currentSortMode = 'time_new'; // 'time_new', 'time_old', 'chat_order'
+
+    async function init() {
         detectPlatform();
         setupEventListeners();
-        loadPins();
+        await loadPins();
         injectPanelTrigger();
     }
 
@@ -68,7 +70,8 @@
             const url = location.href;
             if (url !== lastUrl) {
                 lastUrl = url;
-                updatePanelBadge();
+                // If panel is open, refresh it for the new conversation
+                if (panelElement) renderPanel(false);
             }
         }).observe(document, {subtree: true, childList: true});
     }
@@ -83,9 +86,12 @@
             if (selectedText && selectedText.length > 0) {
                 const range = selection.getRangeAt(0);
                 const rect = range.getBoundingClientRect();
+                
+                // Calculate horizontal center of selection
                 const centerX = rect.left + (rect.width / 2);
                 
-                showFloatingBtn(centerX, rect.top + window.scrollY, selectedText);
+                // Position button centered horizontally below the selection
+                showFloatingBtn(centerX, rect.bottom + window.scrollY, selectedText);
             } else if (floatingBtn && !e.target.closest('.chatpin-floating-btn')) {
                 removeFloatingBtn();
             }
@@ -105,10 +111,10 @@
         floatingBtn.className = 'chatpin-floating-btn';
         floatingBtn.innerHTML = '📌 Pin';
         
-        // Adjust position to be centered above the selection
+        // Position centered horizontally below selection
         floatingBtn.style.left = `${x}px`;
         floatingBtn.style.top = `${y}px`;
-        floatingBtn.style.transform = 'translate(-50%, -100%) translateY(-10px)';
+        floatingBtn.style.transform = 'translateX(-50%) translateY(8px)';
 
         floatingBtn.onclick = (e) => {
             e.stopPropagation();
@@ -137,6 +143,7 @@
         renderModal("Rename pin:", pin.name, async (newName) => {
             pin.name = newName;
             await chrome.storage.local.set({ chatpins: pins });
+            showToast('Pin renamed.');
             if (panelElement) {
                 const isAll = panelElement.querySelector('.chatpin-panel-header').innerText.includes('All Pins');
                 renderPanel(isAll);
@@ -190,8 +197,14 @@
             : range.commonAncestorContainer.parentElement.closest(config.messageSelector);
 
         const messageId = messageEl ? (messageEl.getAttribute('data-testid') || messageEl.id || 'unknown') : 'unknown';
-        const scrollContainer = document.querySelector(config.scrollSelector);
         
+        // Calculate message order
+        let messageOrder = 0;
+        if (messageEl) {
+            const allMessages = Array.from(document.querySelectorAll(config.messageSelector));
+            messageOrder = allMessages.indexOf(messageEl);
+        }
+
         const pin = {
             id: Date.now().toString(),
             name,
@@ -199,6 +212,7 @@
             conversationId: config.getConversationId(),
             conversationTitle: config.getConversationTitle(),
             messageId,
+            messageOrder,
             selectedText,
             scrollSelector: config.scrollSelector,
             createdAt: Date.now()
@@ -207,15 +221,22 @@
         pins.push(pin);
         await chrome.storage.local.set({ chatpins: pins });
         showToast('Pin added.');
-        updatePanelBadge();
-        if (panelElement) renderPinList();
+        if (panelElement) {
+            const isAll = panelElement.querySelector('.chatpin-panel-header').innerText.includes('All Pins');
+            renderPanel(isAll);
+        }
     }
 
     // --- Storage & Data ---
     async function loadPins() {
-        const result = await chrome.storage.local.get('chatpins');
-        pins = result.chatpins || [];
-        updatePanelBadge();
+        try {
+            const result = await chrome.storage.local.get(['chatpins', 'sortMode']);
+            pins = Array.isArray(result.chatpins) ? result.chatpins : [];
+            currentSortMode = result.sortMode || 'time_new';
+        } catch (e) {
+            console.error('ChatPin: Failed to load pins', e);
+            pins = [];
+        }
     }
 
     function showToast(message) {
@@ -232,22 +253,9 @@
 
         panelTrigger = document.createElement('div');
         panelTrigger.className = 'chatpin-panel-trigger';
-        panelTrigger.innerHTML = '📌<span class="chatpin-badge" id="chatpin-badge">0</span>';
+        panelTrigger.innerHTML = '📌';
         panelTrigger.onclick = togglePanel;
         document.body.appendChild(panelTrigger);
-        updatePanelBadge();
-    }
-
-    function updatePanelBadge() {
-        const badge = document.getElementById('chatpin-badge');
-        if (!badge) return;
-        
-        const config = PLATFORM_CONFIG[currentPlatform];
-        const currentConvId = config.getConversationId();
-        const currentPins = pins.filter(p => p.conversationId === currentConvId);
-        
-        badge.innerText = currentPins.length;
-        badge.style.display = currentPins.length > 0 ? 'block' : 'none';
     }
 
     function togglePanel() {
@@ -268,12 +276,31 @@
         const config = PLATFORM_CONFIG[currentPlatform];
         const currentConvId = config.getConversationId();
         
-        let filteredPins = showAll ? pins : pins.filter(p => p.conversationId === currentConvId);
+        // Ensure pins is an array
+        if (!Array.isArray(pins)) pins = [];
         
+        let filteredPins = showAll ? pins : pins.filter(p => p && p.conversationId === currentConvId);
+        
+        const sortLabels = {
+            'time_new': 'Time (Newest)',
+            'time_old': 'Time (Oldest)',
+            'chat_order': 'Chat Order'
+        };
+
         panelElement.innerHTML = `
             <div class="chatpin-panel-header">
-                <span>📌 ${showAll ? 'All Pins' : 'Pins in this chat'} (${filteredPins.length})</span>
-                <span class="chatpin-panel-close">✕</span>
+                <span>📌 ${showAll ? 'All Pins' : 'Pins'}</span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <div class="chatpin-sort-container">
+                        <button class="chatpin-sort-trigger" id="chatpin-sort-btn">${sortLabels[currentSortMode]} ▾</button>
+                        <div class="chatpin-sort-menu" id="chatpin-sort-menu">
+                            <div class="chatpin-sort-option" data-sort="time_new">Time (Newest)</div>
+                            <div class="chatpin-sort-option" data-sort="time_old">Time (Oldest)</div>
+                            <div class="chatpin-sort-option" data-sort="chat_order">Chat Order</div>
+                        </div>
+                    </div>
+                    <span class="chatpin-panel-close">✕</span>
+                </div>
             </div>
             <div class="chatpin-list"></div>
             <div class="chatpin-panel-footer">
@@ -284,6 +311,31 @@
         `;
 
         document.body.appendChild(panelElement);
+
+        // Sort events
+        const sortBtn = panelElement.querySelector('#chatpin-sort-btn');
+        const sortMenu = panelElement.querySelector('#chatpin-sort-menu');
+        
+        sortBtn.onclick = (e) => {
+            e.stopPropagation();
+            sortMenu.classList.toggle('active');
+        };
+
+        panelElement.querySelectorAll('.chatpin-sort-option').forEach(opt => {
+            opt.onclick = async (e) => {
+                currentSortMode = e.target.dataset.sort;
+                await chrome.storage.local.set({ sortMode: currentSortMode });
+                sortMenu.classList.remove('active');
+                renderPanel(showAll);
+            };
+        });
+
+        // Close sort menu on click outside
+        document.addEventListener('click', (e) => {
+            if (sortMenu && !sortMenu.contains(e.target) && e.target !== sortBtn) {
+                sortMenu.classList.remove('active');
+            }
+        }, { once: true });
 
         panelElement.querySelector('.chatpin-panel-close').onclick = () => {
             panelElement.remove();
@@ -298,14 +350,17 @@
     }
 
     function renderPinList(filteredPins) {
+        if (!panelElement) return;
         const listContainer = panelElement.querySelector('.chatpin-list');
+        if (!listContainer) return;
+        
         listContainer.innerHTML = '';
 
-        if (filteredPins.length === 0) {
+        if (!filteredPins || filteredPins.length === 0) {
             listContainer.innerHTML = `
                 <div class="chatpin-empty">
                     <div class="chatpin-empty-icon">📌</div>
-                    <div class="chatpin-empty-text">No pins yet. Select text in the chat to add one.</div>
+                    <div class="chatpin-empty-text">No pins yet — select any text and click the pin button to get started.</div>
                 </div>
             `;
             return;
@@ -313,10 +368,26 @@
 
         const isAllView = panelElement.querySelector('.chatpin-panel-header').innerText.includes('All Pins');
 
+        // Apply Sorting
+        const sortedPins = [...filteredPins];
+        if (currentSortMode === 'time_new') {
+            sortedPins.sort((a, b) => b.createdAt - a.createdAt);
+        } else if (currentSortMode === 'time_old') {
+            sortedPins.sort((a, b) => a.createdAt - b.createdAt);
+        } else if (currentSortMode === 'chat_order') {
+            sortedPins.sort((a, b) => {
+                // First by conversation, then by order
+                if (a.conversationId !== b.conversationId) {
+                    return b.createdAt - a.createdAt; // Different convs: newest first
+                }
+                return (a.messageOrder || 0) - (b.messageOrder || 0);
+            });
+        }
+
         if (isAllView) {
             // Group by conversation
             const groups = {};
-            filteredPins.forEach(pin => {
+            sortedPins.forEach(pin => {
                 if (!groups[pin.conversationId]) {
                     groups[pin.conversationId] = {
                         title: pin.conversationTitle,
@@ -329,18 +400,18 @@
             Object.values(groups).forEach(group => {
                 const groupEl = document.createElement('div');
                 groupEl.innerHTML = `
-                    <div style="background: var(--chatpin-item-hover); padding: 8px 20px; font-size: 0.75rem; font-weight: 700; color: var(--chatpin-text-secondary); border-bottom: 1px solid var(--chatpin-border); text-transform: uppercase; letter-spacing: 0.05em;">
+                    <div style="background: var(--chatpin-bg-subtle); padding: 8px 20px; font-size: 11px; font-weight: 600; color: var(--chatpin-text-secondary); border-bottom: 1px solid var(--chatpin-border); text-transform: uppercase; letter-spacing: 0.03em;">
                         ${group.title} (${group.pins.length})
                     </div>
                 `;
                 listContainer.appendChild(groupEl);
 
-                group.pins.sort((a, b) => b.createdAt - a.createdAt).forEach(pin => {
+                group.pins.forEach(pin => {
                     listContainer.appendChild(createPinItem(pin));
                 });
             });
         } else {
-            filteredPins.sort((a, b) => b.createdAt - a.createdAt).forEach(pin => {
+            sortedPins.forEach(pin => {
                 listContainer.appendChild(createPinItem(pin));
             });
         }
@@ -350,14 +421,14 @@
         const item = document.createElement('div');
         item.className = 'chatpin-item';
         
-        const date = new Date(pin.createdAt).toLocaleString();
-        const currentConvId = PLATFORM_CONFIG[currentPlatform].getConversationId();
+        const date = new Date(pin.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
         
         item.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div style="flex-grow: 1; overflow: hidden; text-overflow: ellipsis;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div style="flex-grow: 1; overflow: hidden; text-overflow: ellipsis; padding-right: 12px;">
                     <span class="chatpin-item-name">${pin.name}</span>
                     <span class="chatpin-item-time">${date}</span>
+                    ${pin.conversationId !== PLATFORM_CONFIG[currentPlatform].getConversationId() ? `<div style="font-size:11px; color:var(--chatpin-text-secondary); margin-top:2px; opacity: 0.8;">${pin.conversationTitle}</div>` : ''}
                 </div>
                 <div class="chatpin-item-actions">
                     <span class="chatpin-action-btn chatpin-edit" title="Rename">✏️</span>
@@ -389,7 +460,6 @@
     async function deletePin(id) {
         pins = pins.filter(p => p.id !== id);
         await chrome.storage.local.set({ chatpins: pins });
-        updatePanelBadge();
         if (panelElement) {
             const isAll = panelElement.querySelector('.chatpin-panel-header').innerText.includes('All Pins');
             renderPanel(isAll);

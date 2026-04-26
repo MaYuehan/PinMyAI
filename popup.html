@@ -2,74 +2,73 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>ChatPin</title>
+  <title>PinMyAI</title>
   <style>
     :root {
       --bg: #ffffff;
+      --bg-subtle: #f9f9f9;
       --text: #1a1a1a;
-      --text-sec: #666666;
-      --accent: #007aff;
-      --border: rgba(0, 0, 0, 0.08);
-      --font: -apple-system, BlinkMacSystemFont, 'Inter', 'SF Pro', 'Segoe UI', sans-serif;
+      --text-sec: #6b6b6b;
+      --accent: #2d6a4f;
+      --border: #e6e6e6;
+      --font: "Claude Variable", "Claude", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable", "Segoe UI", Roboto, sans-serif;
     }
     @media (prefers-color-scheme: dark) {
       :root {
-        --bg: #1c1c1e;
-        --text: #f5f5f7;
-        --text-sec: #a1a1a6;
-        --border: rgba(255, 255, 255, 0.1);
+        --bg: #2a2a2a;
+        --bg-subtle: #1e1e1e;
+        --text: #e5e5e5;
+        --text-sec: #a0a0a0;
+        --border: #3a3a3a;
       }
     }
     body {
       width: 280px;
-      padding: 20px;
+      padding: 24px;
       margin: 0;
       font-family: var(--font);
       background: var(--bg);
       color: var(--text);
+      -webkit-font-smoothing: antialiased;
     }
     h2 {
       margin: 0 0 12px 0;
-      font-size: 1.25rem;
-      font-weight: 700;
+      font-size: 18px;
+      font-weight: 600;
       display: flex;
       align-items: center;
       gap: 10px;
     }
     .info {
-      font-size: 0.9rem;
+      font-size: 14px;
       color: var(--text-sec);
       line-height: 1.5;
-      margin-bottom: 20px;
+      margin-bottom: 24px;
     }
     .btn {
       display: flex;
       align-items: center;
       justify-content: center;
       width: 100%;
-      padding: 12px;
+      padding: 10px;
       background: var(--accent);
       color: white;
       text-decoration: none;
-      border-radius: 10px;
-      font-weight: 600;
-      font-size: 0.9rem;
-      transition: transform 0.2s, opacity 0.2s;
+      border-radius: 6px;
+      font-weight: 500;
+      font-size: 14px;
+      transition: opacity 150ms ease-out;
     }
     .btn:hover {
       opacity: 0.9;
-      transform: translateY(-1px);
-    }
-    .btn:active {
-      transform: translateY(0);
     }
   </style>
 </head>
 <body>
-  <h2>📌 ChatPin</h2>
+  <h2>📌 PinMyAI</h2>
   <div class="info">
-    To use <b>ChatPin</b>, open ChatGPT, Claude, or DeepSeek. Select any text in an AI's reply to create a pin.
+    Pin and jump to specific messages in AI conversations. Select any text to create a pin.
   </div>
-  <a href="https://chatgpt.com" target="_blank" class="btn">Go to ChatGPT</a>
+  <a href="https://claude.ai" target="_blank" class="btn">Go to Claude</a>
 </body>
 </html>
