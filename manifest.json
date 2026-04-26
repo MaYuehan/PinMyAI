@@ -5,7 +5,8 @@
   "description": "Pin and jump to specific parts of AI chat conversations.",
   "permissions": [
     "storage",
-    "activeTab"
+    "activeTab",
+    "tabs"
   ],
   "host_permissions": [
     "https://chatgpt.com/*",

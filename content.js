@@ -51,6 +51,34 @@
         setupEventListeners();
         await loadPins();
         injectPanelTrigger();
+        
+        // Check for auto-jump parameter on load
+        checkAutoJump();
+    }
+
+    function checkAutoJump() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const jumpId = urlParams.get('chatpin_jump');
+        if (jumpId) {
+            // Wait for messages to load, then jump
+            const checkInterval = setInterval(() => {
+                const pin = pins.find(p => p.id === jumpId);
+                if (pin) {
+                    const config = PLATFORM_CONFIG[currentPlatform];
+                    const targetEl = pin.messageId && pin.messageId !== 'unknown' 
+                        ? (document.querySelector(`[data-testid="${pin.messageId}"]`) || document.getElementById(pin.messageId))
+                        : Array.from(document.querySelectorAll(config.messageSelector)).find(msg => msg.innerText.includes(pin.selectedText));
+                    
+                    if (targetEl) {
+                        clearInterval(checkInterval);
+                        setTimeout(() => jumpToPin(pin), 1000); // Small delay for layout stability
+                    }
+                }
+            }, 500);
+            
+            // Timeout after 10 seconds
+            setTimeout(() => clearInterval(checkInterval), 10000);
+        }
     }
 
     function detectPlatform() {
@@ -472,20 +500,19 @@
         
         // 1. Check if we need to switch conversations
         if (pin.conversationId !== config.getConversationId()) {
-            if (confirm(`Switch to "${pin.conversationTitle}"? Your current conversation will be left.`)) {
-                // Navigate to the other conversation
-                let newUrl = '';
-                if (pin.platform === 'chatgpt') newUrl = `https://chatgpt.com/c/${pin.conversationId}`;
-                else if (pin.platform === 'claude') newUrl = `https://claude.ai/chat/${pin.conversationId}`;
-                else if (pin.platform === 'deepseek') newUrl = `https://chat.deepseek.com/a/chat/s/${pin.conversationId}`;
+            // Build conversation URL based on platform
+            let newUrl = '';
+            if (pin.platform === 'chatgpt') newUrl = `https://chatgpt.com/c/${pin.conversationId}`;
+            else if (pin.platform === 'claude') newUrl = `https://claude.ai/chat/${pin.conversationId}`;
+            else if (pin.platform === 'deepseek') newUrl = `https://chat.deepseek.com/a/chat/s/${pin.conversationId}`;
+            
+            if (newUrl) {
+                // Add jump parameter to URL
+                const jumpUrl = new URL(newUrl);
+                jumpUrl.searchParams.set('chatpin_jump', pin.id);
                 
-                if (newUrl) {
-                    window.location.href = newUrl;
-                    // Note: We can't immediately scroll after redirect in the same script instance.
-                    // The script will reload on the new page and we could check for a "jump" parameter.
-                    return;
-                }
-            } else {
+                // Open in new window/tab
+                window.open(jumpUrl.toString(), '_blank');
                 return;
             }
         }
