@@ -102,13 +102,15 @@
         document.addEventListener('mouseup', handleMouseUp);
         document.addEventListener('mousedown', handleMouseDown);
         
-        // Listen for URL changes (for SPAs)
-        let lastUrl = location.href;
+        // Listen for URL changes (for SPAs like ChatGPT / Claude)
+        // We strip the search params before comparing so that our own
+        // history.replaceState (removing ?chatpin_jump) doesn't count as a navigation.
+        let lastPath = location.pathname;
         new MutationObserver(() => {
-            const url = location.href;
-            if (url !== lastUrl) {
-                lastUrl = url;
-                // If panel is open, refresh it for the new conversation
+            const path = location.pathname;
+            if (path !== lastPath) {
+                lastPath = path;
+                // Only refresh if the panel is actually open
                 if (panelElement) renderPanel(false);
             }
         }).observe(document, {subtree: true, childList: true});
