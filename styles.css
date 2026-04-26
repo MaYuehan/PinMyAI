@@ -1,27 +1,71 @@
-/* ChatPin Styles */
+/* ChatPin Modern Minimalist Styles */
+
+:root {
+    /* Light Mode (Default) */
+    --chatpin-bg: #ffffff;
+    --chatpin-bg-glass: rgba(255, 255, 255, 0.7);
+    --chatpin-text: #1a1a1a;
+    --chatpin-text-secondary: #666666;
+    --chatpin-accent: #007aff; /* Premium Blue */
+    --chatpin-accent-hover: #0056b3;
+    --chatpin-border: rgba(0, 0, 0, 0.08);
+    --chatpin-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+    --chatpin-item-hover: rgba(0, 0, 0, 0.04);
+    --chatpin-font: -apple-system, BlinkMacSystemFont, 'Inter', 'SF Pro', 'Segoe UI', Roboto, sans-serif;
+    --chatpin-radius: 12px;
+    --chatpin-radius-sm: 8px;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --chatpin-bg: #1c1c1e;
+        --chatpin-bg-glass: rgba(28, 28, 30, 0.7);
+        --chatpin-text: #f5f5f7;
+        --chatpin-text-secondary: #a1a1a6;
+        --chatpin-accent: #0a84ff;
+        --chatpin-accent-hover: #409cff;
+        --chatpin-border: rgba(255, 255, 255, 0.1);
+        --chatpin-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+        --chatpin-item-hover: rgba(255, 255, 255, 0.06);
+    }
+}
+
+/* Base resets for extension elements */
+.chatpin-floating-btn, .chatpin-modal, .chatpin-panel, .chatpin-toast {
+    font-family: var(--chatpin-font);
+    box-sizing: border-box;
+}
 
 /* Floating Pin Button */
 .chatpin-floating-btn {
     position: fixed;
     z-index: 10000;
-    background: #10a37f; /* ChatGPT green */
-    color: white;
-    padding: 6px 12px;
-    border-radius: 4px;
+    background: var(--chatpin-bg-glass);
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
+    color: var(--chatpin-text);
+    padding: 0.5rem 1rem;
+    border-radius: var(--chatpin-radius-sm);
     cursor: pointer;
-    font-size: 14px;
+    font-size: 0.9rem;
     font-weight: 500;
     display: flex;
     align-items: center;
-    gap: 6px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    border: none;
-    transition: transform 0.1s ease;
+    gap: 8px;
+    box-shadow: var(--chatpin-shadow);
+    border: 1px solid var(--chatpin-border);
+    transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+    animation: chatpin-fade-scale 0.2s ease-out;
 }
 
 .chatpin-floating-btn:hover {
-    transform: scale(1.05);
-    background: #1a7f64;
+    transform: translateY(-2px);
+    background: var(--chatpin-bg);
+    border-color: var(--chatpin-accent);
+}
+
+.chatpin-floating-btn:active {
+    transform: translateY(0);
 }
 
 /* Naming Modal */
@@ -31,196 +75,238 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0,0,0,0.5);
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(4px);
     z-index: 10001;
     display: flex;
     align-items: center;
     justify-content: center;
+    animation: chatpin-fade 0.2s ease-out;
 }
 
 .chatpin-modal {
-    background: white;
-    padding: 20px;
-    border-radius: 8px;
-    width: 320px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-    color: #333;
+    background: var(--chatpin-bg);
+    padding: 1.5rem;
+    border-radius: var(--chatpin-radius);
+    width: 340px;
+    box-shadow: var(--chatpin-shadow);
+    border: 1px solid var(--chatpin-border);
+    animation: chatpin-scale-up 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .chatpin-modal h3 {
-    margin: 0 0 15px 0;
-    font-size: 16px;
+    margin: 0 0 1rem 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--chatpin-text);
 }
 
 .chatpin-modal input {
     width: 100%;
-    padding: 8px 12px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    margin-bottom: 15px;
-    font-size: 14px;
-    box-sizing: border-box;
+    padding: 0.75rem 1rem;
+    background: var(--chatpin-item-hover);
+    border: 1px solid var(--chatpin-border);
+    border-radius: var(--chatpin-radius-sm);
+    margin-bottom: 1.25rem;
+    font-size: 0.95rem;
+    color: var(--chatpin-text);
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.chatpin-modal input:focus {
+    border-color: var(--chatpin-accent);
 }
 
 .chatpin-modal-buttons {
     display: flex;
     justify-content: flex-end;
-    gap: 10px;
+    gap: 12px;
 }
 
 .chatpin-btn {
-    padding: 8px 16px;
-    border-radius: 4px;
+    padding: 0.6rem 1.2rem;
+    border-radius: var(--chatpin-radius-sm);
     cursor: pointer;
-    font-size: 14px;
-    border: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+    border: 1px solid transparent;
+    transition: all 0.2s;
 }
 
 .chatpin-btn-cancel {
-    background: #eee;
-    color: #666;
+    background: transparent;
+    color: var(--chatpin-text-secondary);
+}
+
+.chatpin-btn-cancel:hover {
+    background: var(--chatpin-item-hover);
 }
 
 .chatpin-btn-save {
-    background: #10a37f;
+    background: var(--chatpin-accent);
     color: white;
+}
+
+.chatpin-btn-save:hover {
+    background: var(--chatpin-accent-hover);
+    transform: translateY(-1px);
 }
 
 /* Toast */
 .chatpin-toast {
     position: fixed;
-    bottom: 20px;
+    bottom: 2rem;
     left: 50%;
     transform: translateX(-50%);
-    background: #333;
-    color: white;
-    padding: 10px 20px;
-    border-radius: 4px;
+    background: var(--chatpin-bg);
+    color: var(--chatpin-text);
+    padding: 0.75rem 1.5rem;
+    border-radius: 100px;
+    border: 1px solid var(--chatpin-border);
+    box-shadow: var(--chatpin-shadow);
     z-index: 10002;
-    animation: fadeInOut 2s forwards;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    animation: chatpin-toast-anim 2.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
 }
 
-@keyframes fadeInOut {
+@keyframes chatpin-toast-anim {
     0% { opacity: 0; transform: translate(-50%, 20px); }
     15% { opacity: 1; transform: translate(-50%, 0); }
     85% { opacity: 1; transform: translate(-50%, 0); }
     100% { opacity: 0; transform: translate(-50%, -20px); }
 }
 
-/* Management Panel */
+/* Management Panel Trigger */
 .chatpin-panel-trigger {
     position: fixed;
-    top: 15px;
-    right: 15px;
+    top: 75px; /* Moved down to avoid overlapping native elements */
+    right: 20px;
     z-index: 9999;
-    background: white;
-    border: 1px solid #ddd;
+    background: var(--chatpin-bg-glass);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--chatpin-border);
     border-radius: 50%;
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    font-size: 20px;
+    box-shadow: var(--chatpin-shadow);
+    font-size: 1.25rem;
+    transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.chatpin-panel-trigger:hover {
+    transform: scale(1.1);
+    background: var(--chatpin-bg);
 }
 
 .chatpin-badge {
     position: absolute;
-    top: -5px;
-    right: -5px;
-    background: #ef4444;
+    top: -2px;
+    right: -2px;
+    background: var(--chatpin-accent);
     color: white;
     font-size: 10px;
-    padding: 2px 6px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
     border-radius: 10px;
-    font-weight: bold;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--chatpin-bg);
 }
 
+/* Management Panel */
 .chatpin-panel {
     position: fixed;
-    top: 65px;
-    right: 15px;
-    width: 300px;
-    max-height: 500px;
-    background: white;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    top: 130px; /* Positioned below trigger */
+    right: 20px;
+    width: 320px;
+    max-height: 70vh;
+    background: var(--chatpin-bg);
+    border: 1px solid var(--chatpin-border);
+    border-radius: var(--chatpin-radius);
+    box-shadow: var(--chatpin-shadow);
     z-index: 9999;
     display: flex;
     flex-direction: column;
-    color: #333;
     overflow: hidden;
+    animation: chatpin-fade-scale 0.2s ease-out;
 }
 
 .chatpin-panel-header {
-    padding: 15px;
-    border-bottom: 1px solid #eee;
+    padding: 1.25rem;
+    border-bottom: 1px solid var(--chatpin-border);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-weight: bold;
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--chatpin-text);
 }
 
 .chatpin-panel-close {
     cursor: pointer;
-    font-size: 18px;
-    color: #999;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: var(--chatpin-text-secondary);
+    transition: background 0.2s;
+}
+
+.chatpin-panel-close:hover {
+    background: var(--chatpin-item-hover);
+    color: var(--chatpin-text);
 }
 
 .chatpin-list {
     overflow-y: auto;
     flex-grow: 1;
+    padding: 0.5rem 0;
+}
+
+.chatpin-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.chatpin-list::-webkit-scrollbar-thumb {
+    background: var(--chatpin-border);
+    border-radius: 10px;
 }
 
 .chatpin-item {
-    padding: 12px 15px;
-    border-bottom: 1px solid #f5f5f5;
+    padding: 1rem 1.25rem;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: all 0.2s;
+    border-bottom: 1px solid transparent;
 }
 
 .chatpin-item:hover {
-    background: #f9f9f9;
+    background: var(--chatpin-item-hover);
 }
 
 .chatpin-item-name {
     font-weight: 500;
+    font-size: 0.95rem;
+    color: var(--chatpin-text);
     display: block;
     margin-bottom: 4px;
 }
 
 .chatpin-item-time {
-    font-size: 12px;
-    color: #999;
-}
-
-.chatpin-panel-footer {
-    padding: 12px;
-    text-align: center;
-    border-top: 1px solid #eee;
-}
-
-.chatpin-link {
-    color: #10a37f;
-    text-decoration: none;
-    font-size: 13px;
-    cursor: pointer;
-}
-
-/* Highlight Animation */
-.chatpin-highlight {
-    animation: chatpin-flash 1s ease 3;
-    background: rgba(255, 255, 0, 0.4);
-    border-radius: 2px;
-}
-
-@keyframes chatpin-flash {
-    0% { background: rgba(255, 255, 0, 0); }
-    50% { background: rgba(255, 255, 0, 0.6); }
-    100% { background: rgba(255, 255, 0, 0); }
+    font-size: 0.75rem;
+    color: var(--chatpin-text-secondary);
 }
 
 .chatpin-item-actions {
@@ -235,12 +321,86 @@
 }
 
 .chatpin-action-btn {
-    font-size: 14px;
-    padding: 4px;
-    border-radius: 4px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
     cursor: pointer;
+    font-size: 14px;
+    transition: background 0.2s;
 }
 
 .chatpin-action-btn:hover {
-    background: #eee;
+    background: var(--chatpin-border);
+}
+
+.chatpin-panel-footer {
+    padding: 1rem;
+    text-align: center;
+    border-top: 1px solid var(--chatpin-border);
+}
+
+.chatpin-link {
+    color: var(--chatpin-accent);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.chatpin-link:hover {
+    color: var(--chatpin-accent-hover);
+    text-decoration: underline;
+}
+
+/* Animations */
+@keyframes chatpin-fade-scale {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes chatpin-scale-up {
+    from { opacity: 0; transform: scale(0.8); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes chatpin-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Highlight Animation */
+.chatpin-highlight {
+    animation: chatpin-flash 1.2s ease 3;
+    background: rgba(10, 132, 255, 0.2); /* Use accent color for highlight */
+    border-radius: 4px;
+}
+
+@keyframes chatpin-flash {
+    0% { background: rgba(10, 132, 255, 0); }
+    50% { background: rgba(10, 132, 255, 0.4); }
+    100% { background: rgba(10, 132, 255, 0); }
+}
+
+/* Empty State */
+.chatpin-empty {
+    padding: 3rem 2rem;
+    text-align: center;
+    color: var(--chatpin-text-secondary);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.chatpin-empty-icon {
+    font-size: 2.5rem;
+    opacity: 0.5;
+}
+
+.chatpin-empty-text {
+    font-size: 0.9rem;
 }

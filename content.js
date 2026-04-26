@@ -83,8 +83,9 @@
             if (selectedText && selectedText.length > 0) {
                 const range = selection.getRangeAt(0);
                 const rect = range.getBoundingClientRect();
+                const centerX = rect.left + (rect.width / 2);
                 
-                showFloatingBtn(rect.right, rect.top + window.scrollY - 30, selectedText);
+                showFloatingBtn(centerX, rect.top + window.scrollY, selectedText);
             } else if (floatingBtn && !e.target.closest('.chatpin-floating-btn')) {
                 removeFloatingBtn();
             }
@@ -103,8 +104,11 @@
         floatingBtn = document.createElement('button');
         floatingBtn.className = 'chatpin-floating-btn';
         floatingBtn.innerHTML = '📌 Pin';
+        
+        // Adjust position to be centered above the selection
         floatingBtn.style.left = `${x}px`;
         floatingBtn.style.top = `${y}px`;
+        floatingBtn.style.transform = 'translate(-50%, -100%) translateY(-10px)';
 
         floatingBtn.onclick = (e) => {
             e.stopPropagation();
@@ -217,9 +221,9 @@
     function showToast(message) {
         const toast = document.createElement('div');
         toast.className = 'chatpin-toast';
-        toast.innerText = message;
+        toast.innerHTML = `<span>✅</span> <span>${message}</span>`;
         document.body.appendChild(toast);
-        setTimeout(() => toast.remove(), 2000);
+        setTimeout(() => toast.remove(), 2500);
     }
 
     // --- Management Panel ---
@@ -298,7 +302,12 @@
         listContainer.innerHTML = '';
 
         if (filteredPins.length === 0) {
-            listContainer.innerHTML = '<div style="padding: 20px; text-align: center; color: #999;">No pins found.</div>';
+            listContainer.innerHTML = `
+                <div class="chatpin-empty">
+                    <div class="chatpin-empty-icon">📌</div>
+                    <div class="chatpin-empty-text">No pins yet. Select text in the chat to add one.</div>
+                </div>
+            `;
             return;
         }
 
@@ -320,7 +329,7 @@
             Object.values(groups).forEach(group => {
                 const groupEl = document.createElement('div');
                 groupEl.innerHTML = `
-                    <div style="background: #f0f0f0; padding: 5px 15px; font-size: 11px; font-weight: bold; color: #666; border-bottom: 1px solid #eee;">
+                    <div style="background: var(--chatpin-item-hover); padding: 8px 20px; font-size: 0.75rem; font-weight: 700; color: var(--chatpin-text-secondary); border-bottom: 1px solid var(--chatpin-border); text-transform: uppercase; letter-spacing: 0.05em;">
                         ${group.title} (${group.pins.length})
                     </div>
                 `;
