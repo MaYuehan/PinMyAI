@@ -59,26 +59,36 @@
     function checkAutoJump() {
         const urlParams = new URLSearchParams(window.location.search);
         const jumpId = urlParams.get('chatpin_jump');
-        if (jumpId) {
-            // Wait for messages to load, then jump
-            const checkInterval = setInterval(() => {
-                const pin = pins.find(p => p.id === jumpId);
-                if (pin) {
-                    const config = PLATFORM_CONFIG[currentPlatform];
-                    const targetEl = pin.messageId && pin.messageId !== 'unknown' 
-                        ? (document.querySelector(`[data-testid="${pin.messageId}"]`) || document.getElementById(pin.messageId))
-                        : Array.from(document.querySelectorAll(config.messageSelector)).find(msg => msg.innerText.includes(pin.selectedText));
-                    
-                    if (targetEl) {
-                        clearInterval(checkInterval);
-                        setTimeout(() => jumpToPin(pin), 1000); // Small delay for layout stability
-                    }
+        if (!jumpId) return;
+
+        // Clean URL without reloading
+        const cleanUrl = new URL(window.location.href);
+        cleanUrl.searchParams.delete('chatpin_jump');
+        history.replaceState(null, '', cleanUrl.toString());
+
+        // Wait up to 10 seconds for both pins to load and message to appear
+        let attempts = 0;
+        const checkInterval = setInterval(() => {
+            attempts++;
+            const pin = pins.find(p => p.id === jumpId);
+            if (!pin) {
+                if (attempts >= 20) {
+                    clearInterval(checkInterval);
+                    showToast('❌ Pin not found.');
                 }
-            }, 500);
-            
-            // Timeout after 10 seconds
-            setTimeout(() => clearInterval(checkInterval), 10000);
-        }
+                return;
+            }
+
+            const targetEl = findPinElement(pin);
+            if (targetEl) {
+                clearInterval(checkInterval);
+                // Extra delay for page render to settle
+                setTimeout(() => doScrollAndHighlight(targetEl, pin.selectedText), 800);
+            } else if (attempts >= 20) {
+                clearInterval(checkInterval);
+                showToast('❌ Message not found in this conversation.');
+            }
+        }, 500);
     }
 
     function detectPlatform() {
@@ -162,8 +172,29 @@
 
     // --- Pin Creation ---
     function showNamingModal(text) {
+        // IMPORTANT: Capture the message element NOW, while the selection still exists.
+        // By the time the user clicks Save in the modal, window.getSelection() will be empty.
+        const config = PLATFORM_CONFIG[currentPlatform];
+        const selection = window.getSelection();
+
+        let messageId = 'unknown';
+        let messageOrder = 0;
+
+        if (selection && selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            const messageEl = range.commonAncestorContainer.nodeType === 1
+                ? range.commonAncestorContainer.closest(config.messageSelector)
+                : range.commonAncestorContainer.parentElement?.closest(config.messageSelector);
+
+            if (messageEl) {
+                messageId = messageEl.getAttribute('data-testid') || messageEl.id || 'unknown';
+                const allMessages = Array.from(document.querySelectorAll(config.messageSelector));
+                messageOrder = allMessages.indexOf(messageEl);
+            }
+        }
+
         renderModal("Name your pin:", text.substring(0, 20) + (text.length > 20 ? '...' : ''), (name) => {
-            savePin(name, text);
+            savePin(name, text, messageId, messageOrder);
         });
     }
 
@@ -214,24 +245,8 @@
         overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
     }
 
-    async function savePin(name, selectedText) {
+    async function savePin(name, selectedText, messageId, messageOrder) {
         const config = PLATFORM_CONFIG[currentPlatform];
-        const selection = window.getSelection();
-        if (selection.rangeCount === 0) return;
-
-        const range = selection.getRangeAt(0);
-        const messageEl = range.commonAncestorContainer.nodeType === 1 
-            ? range.commonAncestorContainer.closest(config.messageSelector)
-            : range.commonAncestorContainer.parentElement.closest(config.messageSelector);
-
-        const messageId = messageEl ? (messageEl.getAttribute('data-testid') || messageEl.id || 'unknown') : 'unknown';
-        
-        // Calculate message order
-        let messageOrder = 0;
-        if (messageEl) {
-            const allMessages = Array.from(document.querySelectorAll(config.messageSelector));
-            messageOrder = allMessages.indexOf(messageEl);
-        }
 
         const pin = {
             id: Date.now().toString(),
@@ -270,7 +285,11 @@
     function showToast(message) {
         const toast = document.createElement('div');
         toast.className = 'chatpin-toast';
-        toast.innerHTML = `<span>✅</span> <span>${message}</span>`;
+        // Only prepend ✅ if message doesn't already start with an emoji indicator
+        const hasEmoji = /^[\u{1F300}-\u{1FFFF}❌✅🔍⚠️]/u.test(message);
+        toast.innerHTML = hasEmoji
+            ? `<span>${message}</span>`
+            : `<span>✅</span> <span>${message}</span>`;
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 2500);
     }
@@ -394,6 +413,21 @@
             return;
         }
 
+        // Add event delegation to listContainer
+        listContainer.onclick = (e) => {
+            const item = e.target.closest('.chatpin-item');
+            if (!item) return;
+            
+            // If click was on an action button, don't jump
+            if (e.target.closest('.chatpin-item-actions')) return;
+            
+            const pinId = item.dataset.pinId;
+            const pin = pins.find(p => p.id === pinId);
+            if (pin) {
+                jumpToPin(pin);
+            }
+        };
+
         const isAllView = panelElement.querySelector('.chatpin-panel-header').innerText.includes('All Pins');
 
         // Apply Sorting
@@ -448,6 +482,7 @@
     function createPinItem(pin) {
         const item = document.createElement('div');
         item.className = 'chatpin-item';
+        item.dataset.pinId = pin.id;
         
         const date = new Date(pin.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
         
@@ -465,11 +500,6 @@
             </div>
         `;
 
-        item.onclick = (e) => {
-            if (e.target.closest('.chatpin-item-actions')) return;
-            jumpToPin(pin);
-        };
-        
         item.querySelector('.chatpin-edit').onclick = (e) => {
             e.stopPropagation();
             showRenameModal(pin);
@@ -494,91 +524,146 @@
         }
     }
 
+    function showJumpDialog(pin) {
+        const overlay = document.createElement('div');
+        overlay.className = 'chatpin-modal-overlay';
+        
+        let convUrl = '';
+        if (pin.platform === 'chatgpt') convUrl = `https://chatgpt.com/c/${pin.conversationId}`;
+        else if (pin.platform === 'claude') convUrl = `https://claude.ai/chat/${pin.conversationId}`;
+        else if (pin.platform === 'deepseek') convUrl = `https://chat.deepseek.com/a/chat/s/${pin.conversationId}`;
+        
+        if (!convUrl) {
+            showToast('❌ Invalid conversation URL');
+            return;
+        }
+
+        const jumpUrl = new URL(convUrl);
+        jumpUrl.searchParams.set('chatpin_jump', pin.id);
+        const finalUrl = jumpUrl.toString();
+
+        overlay.innerHTML = `
+            <div class="chatpin-jump-dialog">
+                <span class="chatpin-close-x">✕</span>
+                <h3>Switch Conversation?</h3>
+                <p>This pin is in "<strong>${pin.conversationTitle}</strong>". How would you like to jump?</p>
+                <div class="chatpin-jump-options">
+                    <button class="chatpin-jump-btn chatpin-jump-btn-primary" id="chatpin-jump-new-window">Open in New Window</button>
+                    <button class="chatpin-jump-btn" id="chatpin-jump-current">Jump in Current Window</button>
+                    <button class="chatpin-jump-btn" id="chatpin-jump-cancel">Cancel</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        const close = () => overlay.remove();
+
+        overlay.querySelector('.chatpin-close-x').onclick = close;
+        overlay.onclick = (e) => { if (e.target === overlay) close(); };
+        overlay.querySelector('#chatpin-jump-cancel').onclick = close;
+
+        overlay.querySelector('#chatpin-jump-new-window').onclick = () => {
+            chrome.runtime.sendMessage({ action: 'openNewWindow', url: finalUrl });
+            close();
+        };
+
+        overlay.querySelector('#chatpin-jump-current').onclick = () => {
+            window.location.href = finalUrl;
+            close();
+        };
+    }
+
     // --- Jump & Highlight ---
+
+    /**
+     * Find the target element for a pin using three fallback strategies:
+     * 1. data-testid / id attribute
+     * 2. Message order + text content match
+     * 3. Full scan for any message containing the selected text
+     */
+    function findPinElement(pin) {
+        const config = PLATFORM_CONFIG[currentPlatform];
+
+        // Strategy 1: by messageId (most reliable — survives page reloads)
+        if (pin.messageId && pin.messageId !== 'unknown') {
+            const el = document.querySelector(`[data-testid="${pin.messageId}"]`) ||
+                       document.getElementById(pin.messageId);
+            if (el) return el;
+        }
+
+        // Strategy 2: by message order + text match
+        // NOTE: In long conversations with virtual scrolling (ChatGPT, Claude), messages
+        // not yet scrolled into view may be absent from the DOM, making messageOrder
+        // unreliable. We only use this as a hint — the text match is required to confirm.
+        const allMessages = Array.from(document.querySelectorAll(config.messageSelector));
+        if (pin.messageOrder !== undefined && allMessages[pin.messageOrder]) {
+            const msg = allMessages[pin.messageOrder];
+            if (msg.innerText.includes(pin.selectedText)) return msg;
+        }
+
+        // Strategy 3: full scan by selectedText (works even after virtual scroll loads more)
+        // selectedText is the source of truth — it never changes when the user renames a pin.
+        for (const msg of allMessages) {
+            if (msg.innerText.includes(pin.selectedText)) return msg;
+        }
+
+        return null;
+    }
+
     async function jumpToPin(pin) {
         const config = PLATFORM_CONFIG[currentPlatform];
-        
-        // 1. Check if we need to switch conversations
+
+        // 1. Different conversation → show dialog
         if (pin.conversationId !== config.getConversationId()) {
-            // Build conversation URL based on platform
-            let newUrl = '';
-            if (pin.platform === 'chatgpt') newUrl = `https://chatgpt.com/c/${pin.conversationId}`;
-            else if (pin.platform === 'claude') newUrl = `https://claude.ai/chat/${pin.conversationId}`;
-            else if (pin.platform === 'deepseek') newUrl = `https://chat.deepseek.com/a/chat/s/${pin.conversationId}`;
-            
-            if (newUrl) {
-                // Add jump parameter to URL
-                const jumpUrl = new URL(newUrl);
-                jumpUrl.searchParams.set('chatpin_jump', pin.id);
-                
-                // Open in new window/tab
-                window.open(jumpUrl.toString(), '_blank');
-                return;
-            }
+            showJumpDialog(pin);
+            return;
         }
 
-        // 2. Find the message element
-        let targetEl = null;
-        if (pin.messageId && pin.messageId !== 'unknown') {
-            targetEl = document.querySelector(`[data-testid="${pin.messageId}"]`) || 
-                       document.getElementById(pin.messageId);
-        }
-
-        // 3. Fallback: Search for text
-        if (!targetEl) {
-            const allMessages = document.querySelectorAll(config.messageSelector);
-            for (const msg of allMessages) {
-                if (msg.innerText.includes(pin.selectedText)) {
-                    targetEl = msg;
-                    break;
-                }
-            }
-        }
+        // 2. Same conversation → find element and jump
+        let targetEl = findPinElement(pin);
 
         if (targetEl) {
-            targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            setTimeout(() => highlightTextInElement(targetEl, pin.selectedText), 500);
-        } else {
-            // Try scrolling to trigger lazy loading
-            const container = document.querySelector(config.scrollSelector);
-            if (container) {
-                container.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll up to find older messages
-                showToast('Searching for message... please wait.');
-                
-                // Retry after a short delay
-                setTimeout(() => {
-                    let retryTarget = null;
-                    if (pin.messageId && pin.messageId !== 'unknown') {
-                        retryTarget = document.querySelector(`[data-testid="${pin.messageId}"]`) || 
-                                     document.getElementById(pin.messageId);
-                    }
-                    if (!retryTarget) {
-                        const allMessages = document.querySelectorAll(config.messageSelector);
-                        for (const msg of allMessages) {
-                            if (msg.innerText.includes(pin.selectedText)) {
-                                retryTarget = msg;
-                                break;
-                            }
-                        }
-                    }
-                    if (retryTarget) {
-                        retryTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        setTimeout(() => highlightTextInElement(retryTarget, pin.selectedText), 500);
-                    } else {
-                        showToast('Message not found. It might be too far up.');
-                    }
-                }, 1000);
-            }
+            doScrollAndHighlight(targetEl, pin.selectedText);
+            return;
         }
+
+        // 3. Not found → try triggering lazy load by scrolling to top, then retry
+        const container = document.querySelector(config.scrollSelector);
+        showToast('🔍 Searching for message…');
+
+        if (container) {
+            container.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Retry up to 5 times over 3 seconds (every 600ms)
+        let attempts = 0;
+        const retryInterval = setInterval(() => {
+            attempts++;
+            targetEl = findPinElement(pin);
+
+            if (targetEl) {
+                clearInterval(retryInterval);
+                doScrollAndHighlight(targetEl, pin.selectedText);
+            } else if (attempts >= 5) {
+                clearInterval(retryInterval);
+                showToast('❌ Message not found. It may have been deleted or the conversation changed.');
+            }
+        }, 600);
+    }
+
+    /**
+     * Scroll to element at 1/3 of the viewport, then highlight after scroll settles.
+     */
+    function doScrollAndHighlight(targetEl, selectedText) {
+        const config = PLATFORM_CONFIG[currentPlatform];
+        const container = document.querySelector(config.scrollSelector);
+        scrollToTargetWithOffset(targetEl, container);
+        // Wait for smooth scroll to finish (~600ms) before highlighting
+        setTimeout(() => highlightTextInElement(targetEl, selectedText), 600);
     }
 
     function highlightTextInElement(element, text) {
-        // Simple highlight by wrapping text in a span
-        // Note: This is a destructive operation for the DOM if not careful.
-        // Better: use the browser's find or a non-destructive way.
-        // For MVP, we'll just flash the whole message if exact text match is hard,
-        // or try to find the specific text node.
-
         const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null, false);
         let node;
         while (node = walker.nextNode()) {
@@ -587,27 +672,69 @@
                 const start = node.textContent.indexOf(text);
                 range.setStart(node, start);
                 range.setEnd(node, start + text.length);
-                
+
                 const span = document.createElement('span');
                 span.className = 'chatpin-highlight';
-                range.surroundContents(span);
-                
+
+                try {
+                    // surroundContents throws if the range crosses element boundaries
+                    range.surroundContents(span);
+                } catch (e) {
+                    // Cross-element selection: fall back to flashing the whole message
+                    element.classList.add('chatpin-highlight');
+                    setTimeout(() => element.classList.remove('chatpin-highlight'), 3000);
+                    return;
+                }
+
                 setTimeout(() => {
-                    // Remove the span but keep the text
                     const parent = span.parentNode;
-                    while (span.firstChild) {
-                        parent.insertBefore(span.firstChild, span);
+                    if (parent) {
+                        while (span.firstChild) {
+                            parent.insertBefore(span.firstChild, span);
+                        }
+                        parent.removeChild(span);
+                        // Normalize to merge split text nodes — prevents duplicate content bug
+                        // in React-based chats (ChatGPT, Claude).
+                        parent.normalize();
                     }
-                    parent.removeChild(span);
                 }, 3000);
-                
+
                 return;
             }
         }
 
-        // Fallback: flash the whole message
+        // Fallback: no matching text node found — flash the whole message
         element.classList.add('chatpin-highlight');
         setTimeout(() => element.classList.remove('chatpin-highlight'), 3000);
+    }
+
+    function scrollToTargetWithOffset(targetEl, scrollContainer) {
+        if (!targetEl) return;
+        
+        const container = scrollContainer || window;
+        const isWindow = container === window;
+        
+        const rect = targetEl.getBoundingClientRect();
+        const viewportHeight = isWindow ? window.innerHeight : container.clientHeight;
+        const targetTopPosition = viewportHeight / 3; // 1/3 from top
+        
+        if (isWindow) {
+            const currentScroll = window.scrollY || window.pageYOffset;
+            const elementAbsoluteTop = rect.top + currentScroll;
+            const targetScrollY = elementAbsoluteTop - targetTopPosition;
+            window.scrollTo({
+                top: targetScrollY,
+                behavior: 'smooth'
+            });
+        } else {
+            const containerRect = container.getBoundingClientRect();
+            const elementTopInContainer = rect.top - containerRect.top + container.scrollTop;
+            const targetScrollTop = elementTopInContainer - targetTopPosition;
+            container.scrollTo({
+                top: targetScrollTop,
+                behavior: 'smooth'
+            });
+        }
     }
 
     // Start

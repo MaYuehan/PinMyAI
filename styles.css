@@ -431,15 +431,118 @@
 
 /* Highlight Animation */
 .chatpin-highlight {
-    animation: chatpin-flash 1s ease 3;
-    background: rgba(45, 106, 79, 0.15);
-    border-radius: 2px;
+    animation: softHighlight 3s ease-in-out forwards;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
 }
 
-@keyframes chatpin-flash {
-    0% { background: rgba(45, 106, 79, 0); }
-    50% { background: rgba(45, 106, 79, 0.3); }
-    100% { background: rgba(45, 106, 79, 0); }
+@keyframes softHighlight {
+    0% {
+        background-color: rgba(59, 130, 246, 0);
+    }
+    10% {
+        background-color: rgba(59, 130, 246, 0.15);
+    }
+    50% {
+        background-color: rgba(59, 130, 246, 0.15);
+    }
+    90% {
+        background-color: rgba(59, 130, 246, 0.15);
+    }
+    100% {
+        background-color: rgba(59, 130, 246, 0);
+    }
+}
+
+/* Jump Option Dialog */
+.chatpin-jump-dialog {
+    background: var(--chatpin-bg);
+    padding: var(--chatpin-spacing-md);
+    border-radius: 16px;
+    width: 320px;
+    box-shadow: var(--chatpin-shadow-md);
+    border: 1px solid var(--chatpin-border);
+    position: relative;
+    animation: chatpin-scale-up 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.chatpin-jump-dialog h3 {
+    margin: 0 0 8px 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.chatpin-jump-dialog p {
+    margin: 0 0 20px 0;
+    font-size: 13px;
+    color: var(--chatpin-text-secondary);
+    line-height: 1.4;
+}
+
+.chatpin-jump-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.chatpin-jump-btn {
+    width: 100%;
+    padding: 12px;
+    border-radius: var(--chatpin-radius-button);
+    border: 1px solid var(--chatpin-border);
+    background: var(--chatpin-bg-subtle);
+    color: var(--chatpin-text);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 150ms ease;
+    text-align: center;
+}
+
+.chatpin-jump-btn:hover {
+    background: var(--chatpin-bg);
+    border-color: var(--chatpin-accent);
+    color: var(--chatpin-accent);
+}
+
+.chatpin-jump-btn-primary {
+    background: var(--chatpin-accent);
+    color: white;
+    border-color: var(--chatpin-accent);
+}
+
+.chatpin-jump-btn-primary:hover {
+    background: var(--chatpin-accent-hover);
+    color: white;
+}
+
+/* Cancel button in jump dialog */
+#chatpin-jump-cancel {
+    color: var(--chatpin-text-secondary);
+    font-size: 13px;
+    padding: 8px;
+    border-color: transparent;
+    background: transparent;
+}
+
+#chatpin-jump-cancel:hover {
+    background: var(--chatpin-bg-subtle);
+    border-color: var(--chatpin-border);
+    color: var(--chatpin-text);
+}
+
+.chatpin-close-x {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    cursor: pointer;
+    color: var(--chatpin-text-secondary);
+    font-size: 18px;
+    transition: color 150ms;
+}
+
+.chatpin-close-x:hover {
+    color: var(--chatpin-text);
 }
 
 @keyframes chatpin-fade-in {
