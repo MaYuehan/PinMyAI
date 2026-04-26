@@ -579,37 +579,76 @@
     // --- Jump & Highlight ---
 
     /**
-     * Find the target element for a pin using three fallback strategies:
-     * 1. data-testid / id attribute
-     * 2. Message order + text content match
-     * 3. Full scan for any message containing the selected text
+     * Find the message element containing the pin's selected text.
+     * Returns { messageEl, anchorEl } where anchorEl is a temporary <span>
+     * inserted at the exact text location for precise scrolling.
+     * Caller MUST remove anchorEl after use.
      */
+    function findPinAnchor(pin) {
+        const config = PLATFORM_CONFIG[currentPlatform];
+
+        // Find the message element (same 3-strategy logic as before)
+        let messageEl = null;
+
+        if (pin.messageId && pin.messageId !== 'unknown') {
+            messageEl = document.querySelector(`[data-testid="${pin.messageId}"]`) ||
+                        document.getElementById(pin.messageId);
+        }
+
+        if (!messageEl) {
+            const allMessages = Array.from(document.querySelectorAll(config.messageSelector));
+            if (pin.messageOrder !== undefined && allMessages[pin.messageOrder]) {
+                const msg = allMessages[pin.messageOrder];
+                if (msg.innerText.includes(pin.selectedText)) messageEl = msg;
+            }
+            if (!messageEl) {
+                for (const msg of allMessages) {
+                    if (msg.innerText.includes(pin.selectedText)) { messageEl = msg; break; }
+                }
+            }
+        }
+
+        if (!messageEl) return null;
+
+        // Walk text nodes to find the exact location of selectedText
+        const walker = document.createTreeWalker(messageEl, NodeFilter.SHOW_TEXT, null, false);
+        let node;
+        while (node = walker.nextNode()) {
+            const idx = node.textContent.indexOf(pin.selectedText);
+            if (idx !== -1) {
+                // Insert a zero-height anchor span right before the matched text
+                const range = document.createRange();
+                range.setStart(node, idx);
+                range.setEnd(node, idx); // zero-width, non-destructive
+                const anchor = document.createElement('span');
+                anchor.style.cssText = 'display:inline;pointer-events:none;';
+                range.insertNode(anchor);
+                return { messageEl, anchor };
+            }
+        }
+
+        // Fallback: couldn't find the exact text node, scroll to message top
+        return { messageEl, anchor: null };
+    }
+
+    // findPinElement is used by the lazy-load retry path — just needs the messageEl, no anchor
     function findPinElement(pin) {
         const config = PLATFORM_CONFIG[currentPlatform];
 
-        // Strategy 1: by messageId (most reliable — survives page reloads)
         if (pin.messageId && pin.messageId !== 'unknown') {
             const el = document.querySelector(`[data-testid="${pin.messageId}"]`) ||
                        document.getElementById(pin.messageId);
             if (el) return el;
         }
 
-        // Strategy 2: by message order + text match
-        // NOTE: In long conversations with virtual scrolling (ChatGPT, Claude), messages
-        // not yet scrolled into view may be absent from the DOM, making messageOrder
-        // unreliable. We only use this as a hint — the text match is required to confirm.
         const allMessages = Array.from(document.querySelectorAll(config.messageSelector));
         if (pin.messageOrder !== undefined && allMessages[pin.messageOrder]) {
             const msg = allMessages[pin.messageOrder];
             if (msg.innerText.includes(pin.selectedText)) return msg;
         }
-
-        // Strategy 3: full scan by selectedText (works even after virtual scroll loads more)
-        // selectedText is the source of truth — it never changes when the user renames a pin.
         for (const msg of allMessages) {
             if (msg.innerText.includes(pin.selectedText)) return msg;
         }
-
         return null;
     }
 
@@ -637,13 +676,42 @@
     }
 
     /**
-     * Scroll to element at 1/3 of the viewport, then highlight after scroll settles.
+     * Scroll precisely to the pin's text location, then highlight it.
      */
     function doScrollAndHighlight(targetEl, selectedText) {
         const container = getScrollContainer();
-        scrollToTargetWithOffset(targetEl, container);
-        // Wait for the two-step scroll to finish: instant + smooth adjustment (~500ms)
-        setTimeout(() => highlightTextInElement(targetEl, selectedText), 700);
+
+        // Try to get a precise anchor at the exact text position
+        // We create a temporary pin object to reuse findPinAnchor
+        const walker = document.createTreeWalker(targetEl, NodeFilter.SHOW_TEXT, null, false);
+        let anchor = null;
+        let node;
+        while (node = walker.nextNode()) {
+            const idx = node.textContent.indexOf(selectedText);
+            if (idx !== -1) {
+                const range = document.createRange();
+                range.setStart(node, idx);
+                range.setEnd(node, idx);
+                anchor = document.createElement('span');
+                anchor.style.cssText = 'display:inline;pointer-events:none;';
+                range.insertNode(anchor);
+                break;
+            }
+        }
+
+        // Scroll to the anchor if found, otherwise fall back to the message element
+        const scrollTarget = anchor || targetEl;
+        scrollToTargetWithOffset(scrollTarget, container);
+
+        // After scroll settles: remove anchor, then highlight
+        setTimeout(() => {
+            if (anchor && anchor.parentNode) {
+                const parent = anchor.parentNode;
+                parent.removeChild(anchor);
+                parent.normalize();
+            }
+            highlightTextInElement(targetEl, selectedText);
+        }, 700);
     }
 
     async function jumpToPin(pin) {
